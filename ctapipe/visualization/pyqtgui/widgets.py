@@ -127,6 +127,7 @@ class ArrayWidget(FigureCanvas, ArrayDisplay):
         FigureCanvas.__init__(self, parent, width, height, dpi)
 
         self.ax = self.fig.add_axes([0, 0, 1, 1])
+        self.n_telescopes = len(telescope_table)
         ArrayDisplay.__init__(
             self,
             telescope_table['TelX'].data,
@@ -138,20 +139,6 @@ class ArrayWidget(FigureCanvas, ArrayDisplay):
         self.telescopes.set_cmap('viridis')
         self.telescopes.set_picker(1)
         self.ax.set_axis_off()
-        self.camera_disps = {}
-        self.mpl_connect('pick_event', self.telescope_picker)
-
-    def telescope_picker(self, event):
-        t_id = event.ind[0]
-        self.camera_disps[t_id] = self.camera_disps.get(
-            t_id,
-            CameraWidget(
-                CameraGeometry.from_name('hess', 1),
-                telescope='CT-{}'.format(t_id),
-            )
-        )
-        self.camera_disps[t_id].show()
-        self.camera_disps[t_id].setFocus()
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -159,7 +146,6 @@ class MainWindow(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self, **kwargs)
 
         self.eventsource = eventsource
-        self.current_event = next(eventsource)
 
         self.resize(1280, 768)
         tabs = QtGui.QTabWidget()
@@ -173,7 +159,6 @@ class MainWindow(QtGui.QMainWindow):
         self.text.setReadOnly(True)
         self.text.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.text)
-        self.text.setText('{:6d}'.format(self.current_event.count))
 
         button = QtGui.QPushButton(bottom_frame)
         button.clicked.connect(self.next_event)
@@ -182,7 +167,7 @@ class MainWindow(QtGui.QMainWindow):
         layout.addWidget(button)
 
         self.array_view_tab = ArrayWidget(telescope_table=telescope_table)
-        self.telescope_view_tab = TelescopeViewWidget(event=self.current_event)
+        self.telescope_view_tab = TelescopeViewWidget()
         # self.telescope_view_tab.disp.image = self.current_event.dl0.tel[tel].adc_sums[0]
         self.pixel_view_tab = QtGui.QWidget()
 
@@ -191,11 +176,18 @@ class MainWindow(QtGui.QMainWindow):
         tabs.addTab(self.pixel_view_tab, 'Pixel Data')
 
         self.setCentralWidget(tabs)
+        self.next_event()
 
     def next_event(self):
         self.current_event = next(self.eventsource)
         self.text.setText('{:6d}'.format(self.current_event.count))
         self.telescope_view_tab.update(event=self.current_event)
+
+        values = self.array_view_tab.values
+        values[:] = 0
+        values[list(self.current_event.dl0.tels_with_data)] = 1
+        self.array_view_tab.telescopes.set_clim(0, 1)
+        self.array_view_tab.values = values
 
 
     def closeEvent(self, event):
