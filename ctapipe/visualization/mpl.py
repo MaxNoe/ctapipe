@@ -371,7 +371,7 @@ class ArrayDisplay:
     """
 
     def __init__(self, telx, tely, mirrorarea,
-                 axes=None, title="Array", autoupdate=True):
+                 ax=None, title="Array", autoupdate=True):
 
         patches = [Circle(xy=(x, y), radius=np.sqrt(a))
                    for x, y, a in zip(telx, tely, mirrorarea)]
@@ -383,7 +383,7 @@ class ArrayDisplay:
         self.telescopes.set_cmap('spectral_r')
         self.telescopes.set_edgecolor('none')
 
-        self.axes = axes if axes is not None else plt.gca()
+        self.axes = ax if ax is not None else plt.gca()
         self.axes.add_collection(self.telescopes)
         self.axes.set_aspect(1.0)
         self.axes.set_title(title)
