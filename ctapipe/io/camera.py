@@ -182,7 +182,7 @@ def _guess_camera_type(npix, pix_sep):
         return _npix_to_type[(npix, None)]
     except KeyError:
         return _npix_to_type.get((npix, np.round(pix_sep, 3)),
-                                 ('unknown', 'unknown', 'hexagonal'))
+                                 ('unknown', 'unknown-{}px'.format(npix), 'hexagonal'))
 
 
 @u.quantity_input

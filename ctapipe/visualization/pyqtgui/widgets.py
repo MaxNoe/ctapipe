@@ -79,7 +79,8 @@ class CameraWidget(FigureWidget):
 class TelescopeViewWidget(QtGui.QWidget):
     def __init__(self, parent=None, event=None):
         QtGui.QWidget.__init__(self, parent=parent)
-        self.telescope_widgets = {}
+        self.camera_widgets = {}
+        self.telid2camid = {}
         self.event = None
 
         topframe = QtGui.QFrame(parent=self)
@@ -100,25 +101,30 @@ class TelescopeViewWidget(QtGui.QWidget):
 
     def telescope_change(self, index=None):
         telid = int(self.tel_id_box.itemText(index))
-        self.central_widget.setCurrentWidget(self.telescope_widgets[telid])
+        cam_id = self.telid2camid[telid]
+        self.central_widget.setCurrentWidget(self.camera_widgets[cam_id])
 
     def update(self, event=None):
         if event is not None:
+            self.event = event
             for i in range(self.tel_id_box.count()):
                 self.tel_id_box.removeItem(i)
             self.event = event
             for telid in sorted(self.event.dl0.tels_with_data):
-                if telid not in self.telescope_widgets:
-                    self.telescope_widgets[telid] = CameraWidget(
-                        geom=CameraGeometry.guess(*event.meta.pixel_pos[telid])
-                    )
-                    self.central_widget.addWidget(self.telescope_widgets[telid])
+                if telid not in self.telid2camid:
+                    geom = CameraGeometry.guess(*event.meta.pixel_pos[telid])
+                    self.telid2camid[telid] = geom.cam_id
 
-                self.telescope_widgets[telid].disp.image = event.dl0.tel[telid].adc_sums[0]
+                    if geom.cam_id not in self.camera_widgets:
+                        self.camera_widgets[geom.cam_id] = CameraWidget(geom)
+                        self.central_widget.addWidget(self.camera_widgets[geom.cam_id])
+
+                cam_id = self.telid2camid[telid]
+                self.camera_widgets[cam_id].disp.image = event.dl0.tel[telid].adc_sums[0]
                 self.tel_id_box.addItem(str(telid))
 
             self.central_widget.setCurrentWidget(
-                self.telescope_widgets[int(self.tel_id_box.currentText())]
+                self.camera_widgets[self.telid2camid[int(self.tel_id_box.currentText())]]
             )
 
 
@@ -179,15 +185,19 @@ class MainWindow(QtGui.QMainWindow):
         self.next_event()
 
     def next_event(self):
-        self.current_event = next(self.eventsource)
-        self.text.setText('{:6d}'.format(self.current_event.count))
-        self.telescope_view_tab.update(event=self.current_event)
+        try:
+            self.current_event = next(self.eventsource)
+        except StopIteration:
+            self.text.setText('Finished')
+        else:
+            self.text.setText('{:6d}'.format(self.current_event.count))
+            self.telescope_view_tab.update(event=self.current_event)
 
-        values = self.array_view_tab.values
-        values[:] = 0
-        values[list(self.current_event.dl0.tels_with_data)] = 1
-        self.array_view_tab.telescopes.set_clim(0, 1)
-        self.array_view_tab.values = values
+            values = self.array_view_tab.values
+            values[:] = 0
+            values[list(self.current_event.dl0.tels_with_data)] = 1
+            self.array_view_tab.telescopes.set_clim(0, 1)
+            self.array_view_tab.values = values
 
 
     def closeEvent(self, event):
