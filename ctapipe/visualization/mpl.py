@@ -401,9 +401,10 @@ class ArrayDisplay:
     def values(self, values):
         """ set the telescope colors to display  """
         self.telescopes.set_array(values)
+        self.telescopes.changed()
         self._update()
 
     def _update(self):
         """ signal a redraw if necessary """
         if self.autoupdate:
-            plt.draw()
+            self.axes.figure.canvas.draw()
