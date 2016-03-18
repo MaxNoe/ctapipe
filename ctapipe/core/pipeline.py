@@ -84,7 +84,7 @@ class Print(Operator):
         if self.key is None:
             print(event)
         else:
-            print(event[self.key])
+            print(self.key, '=', event[self.key])
         return event
 
 
