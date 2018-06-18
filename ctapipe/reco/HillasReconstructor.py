@@ -20,12 +20,16 @@ from astropy import units as u
 u.dimless = u.dimensionless_unscaled
 
 
-__all__ = ['HillasReconstructor',
-           'TooFewTelescopes',
-           'dist_to_traces', 'MEst', 'GreatCircle']
+__all__ = [
+    'HillasReconstructor',
+    'TooFewTelescopesException',
+    'dist_to_traces',
+    'MEst',
+    'GreatCircle',
+]
 
 
-class TooFewTelescopes(Exception):
+class TooFewTelescopesException(Exception):
     pass
 
 
@@ -155,7 +159,7 @@ class HillasReconstructor(Reconstructor):
         -----------
         hillas_dict : python dictionary
             dictionary with telescope IDs as key and
-            MomentParameters instances as values
+            HillasParametersContainer instances as values
         inst : ctapipe.io.InstrumentContainer
             instrumental description
         tel_phi:
@@ -203,7 +207,7 @@ class HillasReconstructor(Reconstructor):
         result.core_uncert = err_est_pos
 
         result.tel_ids = [h for h in hillas_dict.keys()]
-        result.average_size = np.mean([h.size for h in hillas_dict.values()])
+        result.average_size = np.mean([h.intensity for h in hillas_dict.values()])
         result.is_valid = True
 
         result.alt_uncert = err_est_dir
@@ -235,16 +239,16 @@ class HillasReconstructor(Reconstructor):
         for tel_id, moments in hillas_dict.items():
 
             # NOTE this is correct: +cos(psi) ; +sin(psi)
-            p2_x = moments.cen_x + moments.length * np.cos(moments.psi)
-            p2_y = moments.cen_y + moments.length * np.sin(moments.psi)
+            p2_x = moments.x + moments.length * np.cos(moments.psi)
+            p2_y = moments.y + moments.length * np.sin(moments.psi)
             foclen = subarray.tel[tel_id].optics.equivalent_focal_length
 
             circle = GreatCircle(
                 trafo.pixel_position_to_direction(
-                    np.array([moments.cen_x / u.m, p2_x / u.m]) * u.m,
-                    np.array([moments.cen_y / u.m, p2_y / u.m]) * u.m,
+                    np.array([moments.x / u.m, p2_x / u.m]) * u.m,
+                    np.array([moments.y / u.m, p2_y / u.m]) * u.m,
                     tel_phi[tel_id], tel_theta[tel_id], foclen),
-                moments.size * (moments.length / moments.width)
+                moments.intensity * (moments.length / moments.width)
             )
             circle.pos = subarray.positions[tel_id]
             self.circles[tel_id] = circle
@@ -487,8 +491,8 @@ class HillasReconstructor(Reconstructor):
         for tel_id, hillas in hillas_dict.items():
             foclen = subarray.tel[tel_id].optics.equivalent_focal_length
             max_dir, = trafo.pixel_position_to_direction(
-                np.array([hillas.cen_x / u.m]) * u.m,
-                np.array([hillas.cen_y / u.m]) * u.m,
+                np.array([hillas.x / u.m]) * u.m,
+                np.array([hillas.y / u.m]) * u.m,
                 tel_phi[tel_id], tel_theta[tel_id], foclen)
             weights.append(self.circles[tel_id].weight)
             tels.append(self.circles[tel_id].pos)
